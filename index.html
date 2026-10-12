@@ -17,7 +17,7 @@
 <div class="callout"><strong>Deployment note:</strong> This repo starter currently stores records in the local browser only. To collect everyone's drinks from different phones into one shared company dashboard, connect a shared cloud database and configure employee/admin access. Name-only setup is convenient, but it is not verified authentication.</div><footer class="foot">DAILY POUR · THE BOT COMPANY</footer></div>
 <script>
 const RECORDS_KEY='dailyPour.records.v1', USER_KEY='dailyPour.user.v1';
-const GOOGLE_SCRIPT_URL='PASTE_YOUR_DEPLOYED_APPS_SCRIPT_WEB_APP_URL_HERE';
+const GOOGLE_SCRIPT_URL='https://script.google.com/macros/s/AKfycbzChskg3Pib0oiyZrql435dHONu8gP59lJuaDFz8bNJoVsDDz6ko9_8wf76W9fkpesjoA/exec';
 const SHEETS_CONNECTED=GOOGLE_SCRIPT_URL.startsWith('https://script.google.com/macros/s/');
 const $=id=>document.getElementById(id);
 const dateKey=d=>{const x=new Date(d);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')};
