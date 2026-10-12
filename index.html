@@ -17,6 +17,8 @@
 <div class="callout"><strong>Deployment note:</strong> This repo starter currently stores records in the local browser only. To collect everyone's drinks from different phones into one shared company dashboard, connect a shared cloud database and configure employee/admin access. Name-only setup is convenient, but it is not verified authentication.</div><footer class="foot">DAILY POUR · THE BOT COMPANY</footer></div>
 <script>
 const RECORDS_KEY='dailyPour.records.v1', USER_KEY='dailyPour.user.v1';
+const GOOGLE_SCRIPT_URL='PASTE_YOUR_DEPLOYED_APPS_SCRIPT_WEB_APP_URL_HERE';
+const SHEETS_CONNECTED=GOOGLE_SCRIPT_URL.startsWith('https://script.google.com/macros/s/');
 const $=id=>document.getElementById(id);
 const dateKey=d=>{const x=new Date(d);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')};
 const today=()=>dateKey(new Date());
@@ -24,6 +26,21 @@ const dateTime=d=>new Date(d).toLocaleString([],{month:'short',day:'numeric',hou
 const time=d=>new Date(d).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
 const read=()=>{try{return JSON.parse(localStorage.getItem(RECORDS_KEY)||'[]')}catch{return []}};
 const write=a=>localStorage.setItem(RECORDS_KEY,JSON.stringify(a));
+function loadSharedRecords(){
+ if(!SHEETS_CONNECTED)return;
+ const callback='dailyPourCallback_'+Date.now();
+ window[callback]=data=>{try{if(data&&data.ok&&Array.isArray(data.records)){write(data.records);if(employee)render()}}finally{delete window[callback];script.remove()}};
+ const script=document.createElement('script');
+ script.src=GOOGLE_SCRIPT_URL+'?callback='+callback+'&t='+Date.now();
+ script.onerror=()=>{delete window[callback];script.remove();console.warn('Could not load Google Sheets records.')};
+ document.head.appendChild(script);
+}
+function sendToSheets(record){
+ if(!SHEETS_CONNECTED)return;
+ fetch(GOOGLE_SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(record)})
+ .then(()=>setTimeout(loadSharedRecords,1200))
+ .catch(err=>console.error('Could not send drink to Google Sheets',err));
+}
 let employee=localStorage.getItem(USER_KEY)||'';
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function render(){const rows=read(),todayRows=rows.filter(r=>dateKey(r.at)===today()),mine=todayRows.filter(r=>r.employee===employee);$('today').textContent=new Date().toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});for(const d of ['Coffee','Tea','Milk']){$('my'+d).textContent=mine.filter(r=>r.drink===d).length;$('all'+d).textContent=todayRows.filter(r=>r.drink===d).length}
@@ -32,10 +49,11 @@ $('records').innerHTML=rows.slice().reverse().map(r=>'<tr><td>'+esc(r.employee)+
 function show(){ $('register').classList.toggle('hidden',!!employee);$('app').classList.toggle('hidden',!employee);if(employee){$('greeting').textContent='Hey, '+employee+' 👋';render()}}
 $('registerForm').addEventListener('submit',e=>{e.preventDefault();employee=$('employeeName').value.trim().replace(/\s+/g,' ');if(!employee)return;localStorage.setItem(USER_KEY,employee);show()});
 $('switchUser').addEventListener('click',()=>{if(confirm('Switch the employee name on this device? Existing records will remain.')){employee='';localStorage.removeItem(USER_KEY);show()}});
-document.querySelectorAll('[data-drink]').forEach(b=>b.addEventListener('click',()=>{const drink=b.dataset.drink,rows=read();rows.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random(),employee,drink,at:new Date().toISOString()});write(rows);$('toast').textContent='✓ '+drink+' logged at '+time(new Date());$('toast').classList.remove('hidden');render()}));
+document.querySelectorAll('[data-drink]').forEach(b=>b.addEventListener('click',()=>{const drink=b.dataset.drink,rows=read();const record={id:crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random(),employee,drink,at:new Date().toISOString()};rows.push(record);write(rows);sendToSheets(record);$('toast').textContent='✓ '+drink+' logged at '+time(new Date())+(SHEETS_CONNECTED?' · syncing':'');$('toast').classList.remove('hidden');render()}));
 $('toggleRecords').addEventListener('click',()=>{const isHidden=$('recordsPanel').classList.toggle('hidden');$('toggleRecords').textContent=isHidden?'Show records':'Hide records'});
 $('records').addEventListener('click',e=>{const id=e.target.dataset.undo;if(!id)return;if(confirm('Undo this drink entry?')){write(read().filter(r=>r.id!==id));render()}});
 $('export').addEventListener('click',()=>{const csv=[['Employee','Drink','Timestamp'],...read().map(r=>[r.employee,r.drink,r.at])].map(row=>row.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');const a=document.createElement('a'),url=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.href=url;a.download='daily-pour-'+today()+'.csv';a.click();URL.revokeObjectURL(url)});
 $('clear').addEventListener('click',()=>{if(confirm("Delete today's records from this browser?")){write(read().filter(r=>dateKey(r.at)!==today()));render()}});
 show();
+loadSharedRecords();
 </script></body></html>
